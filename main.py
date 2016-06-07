@@ -1,9 +1,9 @@
 import sqlite3
 import random
 import threading
-import os
-import dbActions
-import Settings
+import sys
+import dbactions
+import settings
 
 
 def finish_game(name, level):
@@ -12,10 +12,15 @@ def finish_game(name, level):
     :param name: player's name
     :param level: player's score
     """
-    con = raise_database()
-    dbActions.insert_new_score(name, level, con, Settings.db_table_name)
-    print "game over"
-    os._exit(1)
+    db_connection = raise_database()
+    dbactions.insert_new_score(name, level, db_connection)
+    dbactions.show_high_scores(db_connection)
+    resume_game = raw_input("Do you want to play again? press 1 for yes: ")
+    if int(resume_game) == 1:
+        main()
+    else:
+        print "game over"
+        sys.exit(0)
 
 
 def calculate_result(first_num, second_num, operation):
@@ -36,18 +41,22 @@ def calculate_result(first_num, second_num, operation):
         return first_num - second_num
 
 
-def check_no_zero(operation, second_num, level):
+def check_no_divide_problems(operation, first_num, second_num, level):
     """
     ensures that we would not divide by zero
-    :param operation
-    :param second_num
+    :param operation : our mathematical operation
+    :param first_num : first random number
+    :param second_num : second random number
     :param level: in case we need to generate new number
     :return: original number or a new one
     """
     if operation == '/':
-        while second_num == 0:
-            second_num = get_random_num(level)
-    return second_num
+        print "divide:", first_num % second_num
+        print first_num
+        print second_num
+        while second_num == 0 or first_num % second_num != 0:
+            first_num, second_num = get_random_numbers(level)
+    return first_num, second_num
 
 
 def lottery_numbers(level):
@@ -56,47 +65,47 @@ def lottery_numbers(level):
     :param level: by the level it will be generated
     :return: equation to print to the user and its result
     """
-    first_num = get_random_num(level)
-    second_num = get_random_num(level)
+    first_num, second_num = get_random_numbers(level)
     mathematical_sign = ['+', '-', '*', '/']
     operation = random.choice(mathematical_sign)
-    second_num = check_no_zero(operation, second_num, level)
+    first_num, second_num = check_no_divide_problems(operation, first_num, second_num, level)
     equation = str(first_num),operation.replace("'", ""),str(second_num)
     result = calculate_result(first_num, second_num, operation)
     return equation, result
 
 
-def get_random_num(level):
+def get_random_numbers(level):
     """
-    generates random number by the level
+    generates random numbers by the level
     :param level
-    :return: generated number
+    :return: 2 generated numbers
     """
     range_start = 10 ** (level - 1)
     range_end = (10 ** level) - 1
-    return random.randint(range_start, range_end)
+    first_num = random.randint(range_start, range_end)
+    second_num = random.randint(range_start, range_end)
+    return first_num, second_num
 
 
 def raise_database():
     """
     connect to the database of scores
-    :return: con
+    :return: db_connection
     """
-    con = sqlite3.connect(Settings.db_path)
-    dbActions.create_table(con)
-    return con
+    db_connection = sqlite3.connect(settings.db_path)
+    dbactions.create_table(db_connection)
+    return db_connection
 
 
 def main():
     """
     the main function which active the game
     """
-    print "hello! please enter your name"
-    name = raw_input()
-    level = 1;
-    answer = True;
+    name = raw_input("hello! please enter your name")
+    level = 1
+    answer = True
     while answer:
-        t = threading.Timer(5.0, finish_game, args=[name, level])
+        t = threading.Timer(settings.timer_sec, finish_game, args=[name, level])
         equation, result = lottery_numbers(level)
         t.start()
         print "please enter next equation:", ''.join(equation)

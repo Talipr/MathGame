@@ -1,71 +1,79 @@
 import sqlite3
-import Settings
+import settings
 
 
-def create_table(con):
+def create_table(db_connection):
     """
     create a table in case it is not exist
-    :param con
+    :param db_connection : connection to db object
     """
-    with con:
-        cur = con.cursor()
+    with db_connection:
+        cur = db_connection.cursor()
         cur.execute("CREATE TABLE IF NOT EXISTS scores(Name TEXT, score INTEGER);")
 
 
-def insert_new_score(name, level, con, table_name):
+def insert_new_score(name, level, db_connection):
     """
     by the user's score, will insert his name or his highest score
-    :param name
-    :param level
-    :param con
-    :param table_name
+    :param name : the name of the player
+    :param level : player's level
+    :param db_connection : connection to db object
     """
-    score = get_score(table_name, name, con)
-    if score == None:
-        insert_new_name(table_name, name, level, con)
+    score = get_score(name, db_connection)
+    if score is None:
+        insert_new_name(name, level, db_connection)
     elif score[0] < level:
-        update_score(table_name, name, level, con)
+        update_score(name, level, db_connection)
 
 
-def get_score(table_name, name, con):
+def get_score(name, db_connection):
     """
     gets user's score, or None if the user does not exist
-    :param table_name
-    :param name
-    :param con
+    :param name : the name of the player
+    :param db_connection : connection to db object
     :return: user's score or None
     """
-    with con:
-        cur = con.cursor()
-        cur.execute("SELECT Score FROM {table} WHERE Name = \"{value}\";".format(table=table_name, value=name))
+    with db_connection:
+        cur = db_connection.cursor()
+        cur.execute("SELECT Score FROM scores WHERE Name = '%s';" % name)
         result = cur.fetchone()
         return result
 
 
-def insert_new_name(table_name, name, level, con):
+def insert_new_name(name, level, db_connection):
     """
     in case user does not exist, inserts his name and hist score
-    :param table_name
-    :param name
-    :param level
-    :param con
+    :param name : the name of the player
+    :param level : player's level
+    :param db_connection : connection to db object
     """
-    cur = con.cursor()
-    cur.execute("INSERT INTO {table} (Name, score) VALUES {values};".format(table=table_name, values=(name, level)))
-    con.commit()
+    cur = db_connection.cursor()
+    cur.execute("INSERT INTO scores (Name, score) VALUES (?, ?);", (name, level))
+    db_connection.commit()
 
 
-def update_score(table_name, name, level, con):
+def update_score(name, level, db_connection):
     """
     in case user exists, updates his score if its higher than he has
-    :param table_name
-    :param name
-    :param level
-    :param con
+    :param name : the name of the player
+    :param level : player's level
+    :param db_connection : connection to db object
     """
-    with con:
-        cur = con.cursor()
-        cur.execute("UPDATE {table} SET score={level} WHERE Name = \"{name}\";".format(table=table_name, level=level,
-                                                                                 name=name))
-        con.commit()
+    with db_connection:
+        cur = db_connection.cursor()
+        cur.execute("UPDATE scores SET score= ? WHERE Name = ?;", (level, name))
+        db_connection.commit()
 
+
+def show_high_scores(db_connection):
+    """
+    shows top 10 player's scores
+    :param db_connection:  connection to the db
+    """
+    with db_connection:
+        cur = db_connection.cursor()
+        cur.execute("select * from scores order by score DESC limit 10;")
+        result = cur.fetchall()
+        print "here top 10 scores:"
+        for score in result:
+            print score
